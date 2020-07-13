@@ -25,7 +25,6 @@ std::string cmd(std::string cmd);
 std::pair<int, int> gridDims(int elements);
 void drawGrid(int x, int y);
 void drawUsage(std::deque<float> usage, int qs, int x, int y, int w, int h);
-void drawLabel(Label *label, int x, int y, int w, int h);
 
 int main() {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
@@ -57,11 +56,7 @@ int main() {
     std::vector<Label*> core_labels;
     for (int i = 0; i < cores; i++) {
         std::string txt = "Thread #" + std::to_string(i);
-        SDL_Color fg = {255, 255, 255, 255};
-        SDL_Surface *surf = TTF_RenderText_Blended(font, txt.c_str(), fg);
-        SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, surf);
-        core_labels.push_back(new Label(tex, surf->w, surf->h));
-        SDL_FreeSurface(surf);
+        core_labels.push_back(new Label(renderer, txt, font));
     }
 
     std::pair<int, int> grid_dimensions = gridDims(cores);
@@ -122,10 +117,11 @@ int main() {
                 i % gridx, i / gridx,
                 width / gridx, height / gridy
             );
-            drawLabel(
-                core_labels[i],
-                i % gridx, i / gridx,
-                width / gridx, height / gridy
+            int w = width / gridx, h = height / gridy;
+            core_labels[i]->render(
+                renderer,
+                (i % gridx) * w + 5, (i / gridx) * h + 5,
+                w - 10, h - 10
             );
         }
         drawGrid(gridx, gridy);
@@ -251,14 +247,4 @@ void drawUsage(std::deque<float> usage, int qs, int x, int y, int w, int h) {
         };
         SDL_RenderFillRect(renderer, &rect);
     }
-}
-
-void drawLabel(Label *label, int x, int y, int w, int h) {
-    SDL_Rect rect_dst = {x * w + 5, y * h + 5, label->width, label->height};
-    if (rect_dst.w + 5 > w)
-        rect_dst.w = w - 10;
-    if (rect_dst.h + 5 > h)
-        rect_dst.h = h - 10;
-    SDL_Rect rect_src = {0, 0, rect_dst.w, rect_dst.h};
-    SDL_RenderCopy(renderer, label->texture, &rect_src, &rect_dst);
 }
