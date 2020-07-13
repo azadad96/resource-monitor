@@ -1,6 +1,5 @@
 main: main.o Label.o Cpu.o RunCommand.o
 	g++ *.o -o main -lSDL2 -lSDL2_ttf -pthread
-	rm *.o
 
 clean:
 	rm *.o main

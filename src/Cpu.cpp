@@ -1,6 +1,6 @@
 #include "Cpu.hpp"
 
-Cpu::Cpu() {
+Cpu::Cpu(SDL_Renderer *renderer, int x, int y, int w, int h) {
 	std::ifstream cpufile("/proc/cpuinfo");
     std::string line;
     int threads = 0;
@@ -10,13 +10,130 @@ Cpu::Cpu() {
     }
     cpufile.close();
     this->threads = threads;
+    this->gridDims();
+    this->queuesize = w / this->gridx / 3;
+    for (int i = 0; i < this->getThreads(); i++) {
+        std::deque<float> a;
+        for (int j = 0; j < this->queuesize; j++)
+            a.push_back(0.0f);
+        this->usages.push_back(a);
+    }
+    this->x = x;
+    this->y = y;
+    this->w = w;
+    this->h = h;
+	this->w_ = w / this->gridx;
+	this->h_ = h / this->gridy;
+	this->renderer = renderer;
+
+	font = TTF_OpenFont("NotoSans-Regular.ttf", 12);
+    if (!font) {
+        fprintf(stderr, "Couldn't load font\n");
+        exit(1);
+    }
+    for (int i = 0; i < this->getThreads(); i++) {
+        std::string txt = "Thread #" + std::to_string(i);
+        this->thread_labels.push_back(new Label(renderer, txt, font));
+    }
+}
+
+Cpu::~Cpu() {
+	for (int i = 0; i < this->getThreads(); i++)
+		delete this->thread_labels[i];
+}
+
+void Cpu::setSize(int x, int y, int w, int h) {
+	this->x = x;
+	this->y = y;
+	this->w = w;
+	this->h = h;
+	this->w_ = w / this->gridx;
+	this->h_ = h / this->gridy;
+	int new_queuesize = this->w_ / 3;
+    while (new_queuesize > this->queuesize) {
+        for (int i = 0; i < this->getThreads(); i++)
+            this->usages[i].push_front(0.0f);
+        this->queuesize++;
+    }
+    while (queuesize > new_queuesize) {
+        for (int i = 0; i < this->getThreads(); i++)
+            this->usages[i].pop_front();
+        this->queuesize--;
+    }
+}
+
+void Cpu::gridDims() {
+	std::vector<int> factors;
+    for (int i = 1; i <= this->getThreads(); i++) {
+        if (this->getThreads() % i == 0)
+            factors.push_back(i);
+    }
+    int a = factors[factors.size() / 2];
+    int b = this->getThreads() / a;
+    if (a > b) {
+        this->gridx = a;
+        this->gridy = b;
+    } else {
+		this->gridx = b;
+        this->gridy = a;
+    }
 }
 
 int Cpu::getThreads() {
 	return this->threads;
 }
 
-std::vector<float> Cpu::getCoreUsages() {
+void Cpu::renderUsages() {
+	for (int i = 0; i < this->getThreads(); i++) {
+		if (this->usages[i].back() < 33.0f)
+	        SDL_SetRenderDrawColor(this->renderer, 0, 128, 0, 255);
+	    else if (this->usages[i].back() < 66.0f)
+	        SDL_SetRenderDrawColor(this->renderer, 192, 192, 0, 255);
+	    else
+	        SDL_SetRenderDrawColor(this->renderer, 128, 0, 0, 255);
+	    int x_ = i % this->gridx;
+		int y_ = i / this->gridx;
+	    for (int j = 0; j < this->queuesize; j++) {
+	        SDL_Rect rect = {
+	            this->x + j * 3 + x_ * this->w_,
+	            this->y + (int) round(this->h_ - this->h_
+	            	* this->usages[i][j] / 100.0f) + y_ * this->h_,
+	            3,
+	            (int) round(this->h_ * this->usages[i][j] / 100.0f)
+	        };
+	        SDL_RenderFillRect(this->renderer, &rect);
+	    }
+	}
+
+	SDL_SetRenderDrawColor(this->renderer, 64, 64, 64, 255);
+    for (int i = 1; i < this->gridx; i++) {
+        int x_ = this->w_ * i;
+        SDL_RenderDrawLine(this->renderer,
+        	this->x + x_, this->y,
+        	this->x + x_, this->y + this->h
+        );
+    }
+    for (int i = 1; i < this->gridy; i++) {
+        int y_ = this->h_ * i;
+        SDL_RenderDrawLine(
+        	this->renderer,
+        	this->x, this->y + y_,
+        	this->x + this->w, this->y + y_
+        );
+    }
+
+    for (int i = 0; i < this->getThreads(); i++) {
+    	int x_ = this->w_ * (i % this->gridx);
+    	int y_ = this->h_ * (i / this->gridx);
+    	this->thread_labels[i]->render(
+    		this->renderer,
+    		this->x + x_ + 5, this->y + y_ + 5,
+    		this->w_ - 10, this->h_ - 10
+    	);
+    }
+}
+
+void Cpu::getCoreUsages() {
 	std::string data = RunCommand::run(
         "top -n 1 -1 | "
         "grep %Cpu | "
@@ -26,12 +143,16 @@ std::vector<float> Cpu::getCoreUsages() {
     );
     std::string a = "";
     std::vector<float> res;
-    for (int i = 0; i < data.length(); i++) {
+    for (int i = 0, j = 0; i < data.length(); i++) {
         if (data.at(i) == '\n' || data.at(i) == '\0') {
-            res.push_back(100 - std::stod(a));
+        	res.push_back(100.0f - std::stof(a));
+            j++;
             a.clear();
         } else
             a += data.at(i);
     }
-    return res;
+    for (int i = 0; i < this->getThreads(); i++) {
+    	this->usages[i].push_back(res[i]);
+    	this->usages[i].pop_front();
+    }
 }
