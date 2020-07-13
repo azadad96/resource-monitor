@@ -13,24 +13,25 @@
 
 class Cpu {
 private:
-	int threads;
-	int gridx, gridy;
-	int x, y, w, h;
-	int w_, h_;
-	int queuesize;
-	std::vector<std::deque<float>> usages;
-	std::vector<Label*> thread_labels;
-	TTF_Font *font;
-	SDL_Renderer *renderer;
-	void gridDims();
+    int threads;
+    int gridx, gridy;
+    int x, y, w, h;
+    int w_, h_;
+    int queuesize;
+    std::vector<std::deque<float>> usages;
+    std::vector<Label*> thread_labels;
+    std::vector<float> freqs;
+    TTF_Font *font;
+    SDL_Renderer *renderer;
+    void gridDims();
+    int getThreads();
 
 public:
-	Cpu(SDL_Renderer *renderer, int x, int y, int w, int h);
-	~Cpu();
-	int getThreads();
-	void renderUsages();
-	void setSize(int x, int y, int w, int h);
-	void getCoreUsages();
+    Cpu(SDL_Renderer *renderer, int x, int y, int w, int h);
+    ~Cpu();
+    void renderUsages();
+    void setSize(int x, int y, int w, int h);
+    void getCoreUsages();
 };
 
 #endif

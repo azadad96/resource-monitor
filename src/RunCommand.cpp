@@ -1,7 +1,7 @@
 #include "RunCommand.hpp"
 
 std::string RunCommand::run(std::string cmd) {
-	FILE *f = popen(cmd.c_str(), "r");
+    FILE *f = popen(cmd.c_str(), "r");
     if (!f) {
         fprintf(stderr, "Couldn't execute command\n");
         exit(1);

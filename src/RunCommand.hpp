@@ -6,7 +6,7 @@
 
 class RunCommand {
 public:
-	static std::string run(std::string cmd);
+    static std::string run(std::string cmd);
 };
 
 #endif
