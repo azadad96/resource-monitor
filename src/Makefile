@@ -1,5 +1,5 @@
 main: main.o Label.o Cpu.o RunCommand.o
-	g++ *.o -o main -lSDL2 -lSDL2_ttf -pthread
+	g++ *.o -o main -lSDL2 -lSDL2_ttf -lSDL2_image -pthread
 
 clean:
 	rm *.o main
@@ -12,6 +12,6 @@ Label.o: Label.hpp Label.cpp
 
 Cpu.o: Cpu.hpp Cpu.cpp
 	g++ -c Cpu.cpp -o Cpu.o
-
+	
 RunCommand.o: RunCommand.hpp RunCommand.cpp
 	g++ -c RunCommand.cpp -o RunCommand.o

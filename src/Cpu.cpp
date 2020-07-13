@@ -26,7 +26,7 @@ Cpu::Cpu(SDL_Renderer *renderer, int x, int y, int w, int h) {
     this->h_ = h / this->gridy;
     this->renderer = renderer;
 
-    font = TTF_OpenFont("NotoSans-Regular.ttf", 12);
+    font = TTF_OpenFont("res/NotoSans-Regular.ttf", 12);
     if (!font) {
         fprintf(stderr, "Couldn't load font\n");
         exit(1);

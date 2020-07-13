@@ -1,6 +1,7 @@
 #include "Cpu.hpp"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_image.h>
 #include <fstream>
 #include <utility>
 #include <vector>
@@ -33,6 +34,10 @@ int main() {
         fprintf(stderr, "An error occured initializing sdl-ttf\n");
         return 1;
     }
+    if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG) {
+        fprintf(stderr, "An error occured initializing sdl-image\n");
+        return 1;
+    }
 
     SDL_Window *window = SDL_CreateWindow(
         "Resource monitor",
@@ -48,6 +53,16 @@ int main() {
 
     int xoff = 40, yoff = 0;
     cpu = new Cpu(renderer, xoff, yoff, width - xoff, height - yoff);
+
+    std::vector<SDL_Texture*> views;
+    std::string img_paths[] = {"cpu", "memory"};
+    for (int i = 0; i < sizeof(img_paths) / sizeof(img_paths[0]); i++) {
+        std::string path = "res/" + img_paths[i] + ".png";
+        views.push_back(IMG_LoadTexture(renderer, path.c_str()));
+        if (!views[i]) {
+            fprintf(stderr, "Couldn't load %s\n", path.c_str());
+        }
+    }
 
     std::thread data_thread(dataGathering);
 
@@ -73,11 +88,29 @@ int main() {
                         cpu->setSize(xoff, yoff, width - xoff, height - yoff);
                     }
                     break;
+
+                case SDL_MOUSEBUTTONDOWN:
+                    if (
+                        event.button.button == SDL_BUTTON_LEFT &&
+                        event.button.x < xoff
+                    )
+                        for (int i = 0; i < views.size(); i++)
+                            if (
+                                event.button.y > i * xoff &&
+                                event.button.y < (i + 1) * xoff
+                            )
+                                current = (View) i;
+                    break;
             }
         }
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
         SDL_RenderClear(renderer);
+
+        for (int i = 0; i < views.size(); i++) {
+            SDL_Rect dst = {0, xoff * i, xoff, xoff};
+            SDL_RenderCopy(renderer, views[i], NULL, &dst);
+        }
 
         SDL_SetRenderDrawColor(renderer, 64, 64, 64, 255);
         SDL_RenderDrawLine(renderer, xoff, 0, xoff, height);
@@ -90,14 +123,16 @@ int main() {
         frame_time = SDL_GetTicks() - frame_start;
         if (1000 / FPS > frame_time)
             SDL_Delay(1000 / FPS - frame_time);
-        printf("%i\n", 1000 / FPS - frame_time);
     }
 
     data_thread_running = false;
     data_thread.join();
+    for (int i = 0; i < views.size(); i++)
+        SDL_DestroyTexture(views[i]);
     delete cpu;
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
+    IMG_Quit();
     SDL_Quit();
     return 0;
 }
