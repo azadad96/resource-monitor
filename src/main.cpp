@@ -1,4 +1,5 @@
 #include "Label.hpp"
+#include "Cpu.hpp"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <fstream>
@@ -46,7 +47,7 @@ int main() {
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    int cores = getCpuCores();
+    Cpu cpu;
 
     TTF_Font *font = TTF_OpenFont("NotoSans-Regular.ttf", 12);
     if (!font) {
@@ -54,24 +55,24 @@ int main() {
         return 1;
     }
     std::vector<Label*> core_labels;
-    for (int i = 0; i < cores; i++) {
+    for (int i = 0; i < cpu.getThreads(); i++) {
         std::string txt = "Thread #" + std::to_string(i);
         core_labels.push_back(new Label(renderer, txt, font));
     }
 
-    std::pair<int, int> grid_dimensions = gridDims(cores);
+    std::pair<int, int> grid_dimensions = gridDims(cpu.getThreads());
     int gridx = grid_dimensions.first;
     int gridy = grid_dimensions.second;
 
     int queuesize = width / gridx / 3;
-    for (int i = 0; i < cores; i++) {
+    for (int i = 0; i < cpu.getThreads(); i++) {
         std::deque<float> a;
         for (int j = 0; j < queuesize; j++)
             a.push_back(0.0f);
         usages.push_back(a);
     }
 
-    std::thread data_thread(dataGathering, cores);
+    std::thread data_thread(dataGathering, cpu.getThreads());
 
     unsigned int frame_start, frame_time;
     bool running = true;
@@ -94,12 +95,12 @@ int main() {
                         height = event.window.data2;
                         int new_queuesize = width / gridx / 3;
                         while (new_queuesize > queuesize) {
-                            for (int i = 0; i < cores; i++)
+                            for (int i = 0; i < cpu.getThreads(); i++)
                                 usages[i].push_front(0.0f);
                             queuesize++;
                         }
                         while (queuesize > new_queuesize) {
-                            for (int i = 0; i < cores; i++)
+                            for (int i = 0; i < cpu.getThreads(); i++)
                                 usages[i].pop_front();
                             queuesize--;
                         }
@@ -111,7 +112,7 @@ int main() {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
         SDL_RenderClear(renderer);
 
-        for (int i = 0; i < cores; i++) {
+        for (int i = 0; i < cpu.getThreads(); i++) {
             drawUsage(
                 usages[i], queuesize,
                 i % gridx, i / gridx,
@@ -135,7 +136,7 @@ int main() {
 
     data_thread_running = false;
     data_thread.join();
-    for (int i = 0; i < cores; i++)
+    for (int i = 0; i < cpu.getThreads(); i++)
         delete core_labels[i];
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
@@ -148,7 +149,7 @@ void dataGathering(int cores) {
     while (data_thread_running) {
         if (SDL_GetTicks() - last_update > updateInterval) {
             last_update = SDL_GetTicks();
-            std::vector<float> usg = getCoreUsages();
+            std::vector<float> usg = Cpu::getCoreUsages();
             for (int i = 0; i < cores; i++) {
                 usages[i].push_back(usg[i]);
                 usages[i].pop_front();
@@ -156,51 +157,6 @@ void dataGathering(int cores) {
         }
         SDL_Delay(1000 / FPS);
     }
-}
-
-int getCpuCores() {
-    std::ifstream cpufile("/proc/cpuinfo");
-    std::string line;
-    int cores = 0;
-    while (std::getline(cpufile, line)) {
-        if (line.substr(0, 9) == "processor")
-            cores++;
-    }
-    return cores;
-}
-
-std::vector<float> getCoreUsages() {
-    std::string data = cmd(
-        "top -n 1 -1 | "
-        "grep %Cpu | "
-        "awk -F, '{print $4}' | "
-        "sed 's/[ a-zA-Z]*$//g' | "
-        "grep --color=never -o '[0-9]*\\.[0-9]*'"
-    );
-    std::string a = "";
-    std::vector<float> res;
-    for (int i = 0; i < data.length(); i++) {
-        if (data.at(i) == '\n' || data.at(i) == '\0') {
-            res.push_back(100 - std::stod(a));
-            a.clear();
-        } else
-            a += data.at(i);
-    }
-    return res;
-}
-
-std::string cmd(std::string cmd) {
-    FILE *f = popen(cmd.c_str(), "r");
-    if (!f) {
-        fprintf(stderr, "Couldn't execute command\n");
-        exit(1);
-    }
-    std::string res = "";
-    char buff[128];
-    while (fgets(buff, sizeof(buff), f) != NULL) {
-        res += buff;
-    }
-    return res;
 }
 
 std::pair<int, int> gridDims(int elements) {

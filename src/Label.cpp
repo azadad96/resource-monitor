@@ -6,15 +6,57 @@ Label::Label(
 	TTF_Font *font,
 	SDL_Color fg
 ) {
-    SDL_Surface *surf = TTF_RenderText_Blended(font, text.c_str(), fg);
+	this->text = text;
+	this->color = fg;
+	this->font = font;
+	this->createTexture(renderer);
+}
+
+Label::~Label() {
+	SDL_DestroyTexture(this->texture);
+}
+
+void Label::createTexture(SDL_Renderer *renderer) {
+	SDL_Surface *surf = TTF_RenderText_Blended(
+		this->font,
+		this->text.c_str(),
+		this->color
+	);
 	this->texture = SDL_CreateTextureFromSurface(renderer, surf);
 	this->width = surf->w;
 	this->height = surf->h;
 	SDL_FreeSurface(surf);
 }
 
-Label::~Label() {
-	SDL_DestroyTexture(this->texture);
+int Label::getWidth() {
+	return this->width;
+}
+
+int Label::getHeight() {
+	return this->height;
+}
+
+std::string Label::getText() {
+	return this->text;
+}
+
+SDL_Color Label::getColor() {
+	return this->color;
+}
+
+void Label::setText(SDL_Renderer *renderer, std::string text) {
+	this->text = text;
+	this->createTexture(renderer);
+}
+
+void Label::setColor(SDL_Renderer *renderer, int r, int g, int b, int a) {
+	this->color = (SDL_Color) {(Uint8) r, (Uint8) g, (Uint8) b, (Uint8) a};
+	this->createTexture(renderer);
+}
+
+void Label::setColor(SDL_Renderer *renderer, SDL_Color color) {
+	this->color = color;
+	this->createTexture(renderer);
 }
 
 void Label::render(SDL_Renderer *renderer, int x, int y, int maxw, int maxh) {
