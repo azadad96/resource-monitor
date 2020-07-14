@@ -26,14 +26,14 @@ Cpu::Cpu(SDL_Renderer *renderer, int x, int y, int w, int h) {
     this->h_ = h / this->gridy;
     this->renderer = renderer;
 
-    font = TTF_OpenFont("res/NotoSans-Regular.ttf", 12);
-    if (!font) {
+    this->font = TTF_OpenFont("res/NotoSans-Regular.ttf", 12);
+    if (!this->font) {
         fprintf(stderr, "Couldn't load font\n");
         exit(1);
     }
     for (int i = 0; i < this->getThreads(); i++) {
         std::string txt = "Thread #" + std::to_string(i);
-        this->thread_labels.push_back(new Label(renderer, txt, font));
+        this->thread_labels.push_back(new Label(renderer, txt, this->font));
         this->freqs.push_back(0.0f);
     }
 }
@@ -41,6 +41,7 @@ Cpu::Cpu(SDL_Renderer *renderer, int x, int y, int w, int h) {
 Cpu::~Cpu() {
     for (int i = 0; i < this->getThreads(); i++)
         delete this->thread_labels[i];
+    TTF_CloseFont(font);
 }
 
 void Cpu::setSize(int x, int y, int w, int h) {
@@ -84,7 +85,7 @@ int Cpu::getThreads() {
     return this->threads;
 }
 
-void Cpu::renderUsages() {
+void Cpu::renderUsage() {
     for (int i = 0; i < this->getThreads(); i++) {
         std::string txt = "Thread #" + std::to_string(i) + ": "
             + std::to_string(this->freqs[i]).substr(0, 4) + "GHz";
@@ -141,7 +142,7 @@ void Cpu::renderUsages() {
     }
 }
 
-void Cpu::getCoreUsages() {
+void Cpu::getUsage() {
     std::string data = RunCommand::run(
         "top -n 1 -1 | "
         "grep %Cpu | "
@@ -151,10 +152,9 @@ void Cpu::getCoreUsages() {
     );
     std::string a = "";
     std::vector<float> res;
-    for (int i = 0, j = 0; i < data.length(); i++) {
+    for (int i = 0; i < data.length(); i++) {
         if (data.at(i) == '\n' || data.at(i) == '\0') {
             res.push_back(100.0f - std::stof(a));
-            j++;
             a.clear();
         } else
             a += data.at(i);

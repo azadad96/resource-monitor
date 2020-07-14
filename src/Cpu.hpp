@@ -29,9 +29,9 @@ private:
 public:
     Cpu(SDL_Renderer *renderer, int x, int y, int w, int h);
     ~Cpu();
-    void renderUsages();
+    void renderUsage();
     void setSize(int x, int y, int w, int h);
-    void getCoreUsages();
+    void getUsage();
 };
 
 #endif

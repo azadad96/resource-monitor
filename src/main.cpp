@@ -1,4 +1,5 @@
 #include "Cpu.hpp"
+#include "Memory.hpp"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_image.h>
@@ -13,12 +14,14 @@
 int updateInterval = 1000;
 const int FPS = 60;
 bool data_thread_running = true;
-Cpu *cpu;
 enum View {
     CPU_VIEW = 0,
-    MEMORY_VIEW
+    MEMORY_VIEW,
+    VIEWS
 };
 View current = CPU_VIEW;
+Cpu *cpu;
+Memory *memory;
 
 void dataGathering();
 
@@ -52,14 +55,19 @@ int main() {
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     int xoff = 40, yoff = 0;
-    cpu = new Cpu(renderer, xoff, yoff, width - xoff, height - yoff);
+    cpu = new Cpu(
+        renderer, xoff, yoff, width - xoff, height - yoff
+    );
+    memory = new Memory(
+        renderer, xoff, yoff, width - xoff, height - yoff
+    );
 
-    std::vector<SDL_Texture*> views;
+    std::vector<SDL_Texture*> viewbtns;
     std::string img_paths[] = {"cpu", "memory"};
     for (int i = 0; i < sizeof(img_paths) / sizeof(img_paths[0]); i++) {
         std::string path = "res/" + img_paths[i] + ".png";
-        views.push_back(IMG_LoadTexture(renderer, path.c_str()));
-        if (!views[i]) {
+        viewbtns.push_back(IMG_LoadTexture(renderer, path.c_str()));
+        if (!viewbtns[i]) {
             fprintf(stderr, "Couldn't load %s\n", path.c_str());
         }
     }
@@ -86,6 +94,9 @@ int main() {
                         width = event.window.data1;
                         height = event.window.data2;
                         cpu->setSize(xoff, yoff, width - xoff, height - yoff);
+                        memory->setSize(
+                            xoff, yoff, width - xoff, height - yoff
+                        );
                     }
                     break;
 
@@ -94,7 +105,7 @@ int main() {
                         event.button.button == SDL_BUTTON_LEFT &&
                         event.button.x < xoff
                     )
-                        for (int i = 0; i < views.size(); i++)
+                        for (int i = 0; i < viewbtns.size(); i++)
                             if (
                                 event.button.y > i * xoff &&
                                 event.button.y < (i + 1) * xoff
@@ -107,16 +118,18 @@ int main() {
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
         SDL_RenderClear(renderer);
 
-        for (int i = 0; i < views.size(); i++) {
-            SDL_Rect dst = {0, xoff * i, xoff, xoff};
-            SDL_RenderCopy(renderer, views[i], NULL, &dst);
-        }
-
         SDL_SetRenderDrawColor(renderer, 64, 64, 64, 255);
         SDL_RenderDrawLine(renderer, xoff, 0, xoff, height);
 
         if (current == CPU_VIEW)
-            cpu->renderUsages();
+            cpu->renderUsage();
+        else if (current == MEMORY_VIEW)
+            memory->renderUsage();
+
+        for (int i = 0; i < viewbtns.size(); i++) {
+            SDL_Rect dst = {0, xoff * i, xoff, xoff};
+            SDL_RenderCopy(renderer, viewbtns[i], NULL, &dst);
+        }
 
         SDL_RenderPresent(renderer);
 
@@ -127,9 +140,10 @@ int main() {
 
     data_thread_running = false;
     data_thread.join();
-    for (int i = 0; i < views.size(); i++)
-        SDL_DestroyTexture(views[i]);
+    for (int i = 0; i < viewbtns.size(); i++)
+        SDL_DestroyTexture(viewbtns[i]);
     delete cpu;
+    delete memory;
     SDL_DestroyWindow(window);
     SDL_DestroyRenderer(renderer);
     IMG_Quit();
@@ -143,7 +157,9 @@ void dataGathering() {
         if (SDL_GetTicks() - last_update > updateInterval) {
             last_update = SDL_GetTicks();
             if (current == CPU_VIEW)
-                cpu->getCoreUsages();
+                cpu->getUsage();
+            else if (current == MEMORY_VIEW)
+                memory->getUsage();
         }
         SDL_Delay(1000 / FPS);
     }
